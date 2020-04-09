@@ -1,0 +1,73 @@
+using io;
+using io::win32;
+using time;
+using string;
+using err;
+
+using <stdio.h>::{perror, fprintf, stderr, printf};
+using <assert.h>::{assert};
+
+using <windows.h> as windows;
+
+export fn main() -> int {
+
+    err::Err+1000 mut e;
+    e.make();
+
+    win32::Async+10 mut async;
+    async.make();
+
+    new i = win32::stdin(&async);
+    e.abort();
+
+    fprintf(stderr, "timeout will happen after 1 seconds, then every 3 second.\ninterval must remain uneffected from stdin input\n\n");
+    io::Io mut t = io::timeout((io::Async mut*)&async, &e, time::from_seconds(1));
+    e.abort();
+
+    assert(t.valid());
+
+    for (;;) {
+        string::String+20 mut buf2;
+        buf2.clear();
+
+        switch t.read(&e, &buf2) {
+            io::Result::Ready => {
+                e.abort();
+
+                fprintf(stderr, "timeout\n");
+
+                t.close();
+                t = io::timeout((io::Async mut*)&async, &e, time::from_seconds(3));
+                e.abort();
+
+                io::select(&async, &e, &t, io::Ready::Read);
+                e.abort();
+            }
+            default => {}
+        }
+        e.abort();
+
+        string::String+2 mut buf;
+        buf.clear();
+
+        switch i.read(&e, &buf) {
+            io::Result::Ready => {
+                printf(">%s<\n", buf.mem);
+            }
+            io::Result::Later => {}
+            io::Result::Eof => {
+                i.close();
+                return 0;
+            }
+            io::Result::Error => {
+                e.abort();
+            }
+        }
+        e.abort();
+
+        io::wait(&async, &e);
+        e.abort();
+    }
+    return 0;
+}
+
